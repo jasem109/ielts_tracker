@@ -35,9 +35,10 @@ h1{font-size:1.5rem;margin:0}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:flex-start;justify-content:center;overflow-y:auto;z-index:50;padding:40px 16px;padding-top:calc(40px + env(safe-area-inset-top,0px))}
 .modal-overlay.open{display:flex}
 .modal-overlay .card{max-width:1000px;width:100%;margin:0}
-.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;flex-wrap:wrap}
 .modal-head h2{margin:0}
 .card h2{margin:0 0 14px;font-size:1.05rem}
+.modal-head h2{margin:0}
 .row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
 .field{flex:1;min-width:120px;display:flex;flex-direction:column;gap:4px}
 label{font-size:.75rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.03em}
@@ -68,6 +69,7 @@ tbody td{padding:8px 10px;border-bottom:1px solid var(--border);white-space:nowr
 .sec-cell{display:flex;flex-direction:column;align-items:center;line-height:1.15}
 .sec-label{font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.02em}
 .sec-score{font-weight:700;font-size:.92rem}
+.sec-max{font-weight:400;font-size:.72rem;color:var(--muted)}
 .sec-blank{text-align:center;color:var(--border)}
 tbody tr:hover{background:var(--bg)}
 .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:.72rem;font-weight:700;color:#fff}
@@ -88,7 +90,6 @@ tbody tr:hover{background:var(--bg)}
       <div class="sub">Record section-wise scores per practice test — saved in this browser</div>
     </div>
     <button class="theme-btn" id="themeBtn">🌓 Theme</button>
-    <button class="primary" id="viewRecordsBtn">📋 View Records</button>
   </header>
 
   <div class="card" id="entryCard">
@@ -115,10 +116,24 @@ tbody tr:hover{background:var(--bg)}
     <button class="primary" id="saveBtn">Save entry</button>
   </div>
 
+  <div class="card" id="recentCard">
+    <div class="modal-head">
+      <h2>Latest records</h2>
+      <button class="link-btn" id="viewAllBtn">📋 View all records</button>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Date</th><th>Test</th><th>Module</th><th>Sec 1</th><th>Sec 2</th><th>Sec 3</th><th>Sec 4</th><th>Total</th><th>Overall</th><th>Notes</th><th></th></tr></thead>
+        <tbody id="recentBody"></tbody>
+      </table>
+      <div class="empty" id="recentEmpty" style="display:none">No entries yet — save your first practice module above.</div>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="recordsModal">
   <div class="card">
     <div class="modal-head">
-      <h2>Your record</h2>
+      <h2>All records</h2>
       <button class="link-btn" id="closeRecordsBtn">✕ Close</button>
     </div>
     <div class="stat-grid" id="statGrid"></div>
@@ -159,6 +174,8 @@ function rawToBand(raw){
   return 2;
 }
 function itemLabel(it){ return typeof it==='string' ? it : it.label; }
+function shortLabel(l){ return String(l).replace(/\s*\(.*\)\s*$/,''); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 const MODULE_ORDER = ['Listening','Reading','Writing','Speaking'];
 function sortEntries(list){
   return list.slice().sort((a,b)=>{
@@ -281,6 +298,40 @@ document.getElementById('saveBtn').addEventListener('click', ()=>{
 
 function fmtTestId(e){ return `${e.series}_B${e.book}_T${e.test}`; }
 
+function secCellHTML(e,i){
+  const s = e.sections[i];
+  if(!s) return '<td class="sec-blank">–</td>';
+  const it = SECTIONS[e.module].items[i];
+  const max = (it && it.max) ? it.max : 9;
+  return `<td><div class="sec-cell"><span class="sec-label">${esc(shortLabel(s.label))}</span><span class="sec-score">${s.score}<span class="sec-max">/${max}</span></span></div></td>`;
+}
+function rowHTML(e){
+  const cfg = SECTIONS[e.module];
+  let secCells = '';
+  for(let i=0;i<4;i++) secCells += secCellHTML(e,i);
+  let totalCell = '<td class="sec-blank">n/a</td>';
+  if(cfg.type === 'raw'){
+    const t = (e.total!=null) ? e.total : e.sections.reduce((a,s)=>a+s.score,0);
+    const maxTotal = cfg.items.reduce((a,it)=>a+it.max,0);
+    totalCell = `<td><b>${t}</b>/${maxTotal}</td>`;
+  }
+  return `<td>${esc(e.date)}</td><td>${esc(fmtTestId(e))}</td>
+    <td><span class="badge ${e.module}">${e.module}</span></td>
+    ${secCells}
+    ${totalCell}
+    <td><b>${e.overall!==null?e.overall.toFixed(1):'–'}</b></td>
+    <td>${esc(e.notes)}</td>
+    <td><button class="del" data-id="${e.id}" title="Delete this entry">✕</button></td>`;
+}
+function fillBody(tbody, list){
+  tbody.innerHTML = '';
+  list.forEach(e=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = rowHTML(e);
+    tbody.appendChild(tr);
+  });
+}
+
 function render(){
   const fMod = document.getElementById('fModule').value;
   const fSer = document.getElementById('fSeries').value;
@@ -288,44 +339,23 @@ function render(){
     .filter(e => !fMod || e.module===fMod)
     .filter(e => !fSer || e.series===fSer);
 
-  const tbody = document.getElementById('tbody');
-  tbody.innerHTML = '';
+  // full records (popup)
+  fillBody(document.getElementById('tbody'), filtered);
   document.getElementById('emptyMsg').style.display = filtered.length ? 'none' : 'block';
-  filtered.forEach(e=>{
-    const tr = document.createElement('tr');
-    let secCells = '';
-    for(let i=0;i<4;i++){
-      const s = e.sections[i];
-      secCells += s
-        ? `<td><div class="sec-cell"><span class="sec-label">${s.label}</span><span class="sec-score">${s.score}</span></div></td>`
-        : `<td class="sec-blank">–</td>`;
-    }
-    const cfg = SECTIONS[e.module];
-    let totalCell = '<td class="sec-blank">n/a</td>';
-    if(cfg.type === 'raw'){
-      const t = (e.total!=null) ? e.total : e.sections.reduce((a,s)=>a+s.score,0);
-      const maxTotal = cfg.items.reduce((a,it)=>a+it.max,0);
-      totalCell = `<td><b>${t}</b>/${maxTotal}</td>`;
-    }
-    tr.innerHTML = `<td>${e.date}</td><td>${fmtTestId(e)}</td>
-      <td><span class="badge ${e.module}">${e.module}</span></td>
-      ${secCells}
-      ${totalCell}
-      <td><b>${e.overall!==null?e.overall.toFixed(1):'–'}</b></td>
-      <td>${e.notes||''}</td>
-      <td><button class="del" data-id="${e.id}" title="Delete this entry">✕</button></td>`;
-    tbody.appendChild(tr);
-  });
+
+  // latest 4 records (on page) — most recently added first
+  const latest = entries.slice().sort((a,b)=>(parseInt(b.id)||0)-(parseInt(a.id)||0)).slice(0,4);
+  fillBody(document.getElementById('recentBody'), latest);
+  document.getElementById('recentEmpty').style.display = latest.length ? 'none' : 'block';
 
   // stats
   const statGrid = document.getElementById('statGrid');
-  const mods = ['Listening','Reading','Writing','Speaking'];
   statGrid.innerHTML = '';
   const totalStat = document.createElement('div');
   totalStat.className='stat';
   totalStat.innerHTML = `<div class="n">${entries.length}</div><div class="l">Total logs</div>`;
   statGrid.appendChild(totalStat);
-  mods.forEach(m=>{
+  MODULE_ORDER.forEach(m=>{
     const list = entries.filter(e=>e.module===m && e.overall!==null);
     const avg = list.length ? (list.reduce((a,b)=>a+b.overall,0)/list.length).toFixed(1) : '–';
     const div = document.createElement('div');
@@ -335,13 +365,15 @@ function render(){
   });
 }
 
-document.getElementById('tbody').addEventListener('click', e=>{
+function onDelete(e){
   const btn = e.target.closest('.del'); if(!btn) return;
   if(confirm('Delete this entry permanently?')){
     entries = entries.filter(x=>x.id!==btn.dataset.id);
     saveEntries(); render();
   }
-});
+}
+document.getElementById('tbody').addEventListener('click', onDelete);
+document.getElementById('recentBody').addEventListener('click', onDelete);
 document.getElementById('fModule').addEventListener('change', render);
 document.getElementById('fSeries').addEventListener('change', render);
 
@@ -350,18 +382,28 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
   if(sure === 'DELETE'){ entries = []; saveEntries(); render(); }
 });
 
+// CSV: every section of every module gets its own column
+const CSV_SECTION_COLS = [];
+MODULE_ORDER.forEach(m=>{
+  SECTIONS[m].items.forEach((it,i)=>CSV_SECTION_COLS.push({m, i, name:`${m} ${itemLabel(it)}`}));
+});
+function csvCell(c){ return `"${String(c==null?'':c).replace(/"/g,'""')}"`; }
+
 document.getElementById('exportBtn').addEventListener('click', ()=>{
   if(!entries.length){ alert('No data to export.'); return; }
-  const rows = [['Date','Series','Book','Test','Module','Section 1','Section 2','Section 3','Section 4','Total','Overall','Notes']];
+  const header = ['Date','Series','Book','Test','Module', ...CSV_SECTION_COLS.map(c=>c.name), 'Total marks','Overall band','Notes'];
+  const rows = [header];
   sortEntries(entries).forEach(e=>{
-    const secVals = [0,1,2,3].map(i => e.sections[i] ? e.sections[i].score : '');
+    const secVals = CSV_SECTION_COLS.map(c=>{
+      if(c.m !== e.module) return '';
+      const s = e.sections[c.i];
+      return s ? s.score : '';
+    });
     const cfg = SECTIONS[e.module];
     const total = cfg.type==='raw' ? ((e.total!=null) ? e.total : e.sections.reduce((a,s)=>a+s.score,0)) : '';
-    rows.push([e.date, e.series, e.book, e.test, e.module,
-      ...secVals, total,
-      e.overall!==null?e.overall:'', (e.notes||'').replace(/,/g,';')]);
+    rows.push([e.date, e.series, e.book, e.test, e.module, ...secVals, total, e.overall!==null?e.overall:'', e.notes||'']);
   });
-  const csv = rows.map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');
+  const csv = rows.map(r=>r.map(csvCell).join(',')).join('\n');
   const blob = new Blob([csv],{type:'text/csv'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -369,10 +411,8 @@ document.getElementById('exportBtn').addEventListener('click', ()=>{
   a.click();
 });
 
-document.getElementById('viewRecordsBtn').addEventListener('click', ()=>{
-  render();
-  document.getElementById('recordsModal').classList.add('open');
-});
+function openRecords(){ render(); document.getElementById('recordsModal').classList.add('open'); }
+document.getElementById('viewAllBtn').addEventListener('click', openRecords);
 document.getElementById('closeRecordsBtn').addEventListener('click', ()=>{
   document.getElementById('recordsModal').classList.remove('open');
 });
@@ -382,6 +422,7 @@ document.getElementById('recordsModal').addEventListener('click', e=>{
 document.addEventListener('keydown', e=>{
   if(e.key === 'Escape') document.getElementById('recordsModal').classList.remove('open');
 });
+document.getElementById('themeBtn').addEventListener('click', ()=>{
   const cur = document.documentElement.getAttribute('data-theme');
   document.documentElement.setAttribute('data-theme', cur==='dark' ? 'light' : 'dark');
 });
