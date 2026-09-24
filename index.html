@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>IELTS Practice Tracker</title>
+<style>
+:root{
+  --bg:#f6f7fb; --card:#ffffff; --text:#1c1e26; --muted:#6b7280;
+  --border:#e3e5ea; --accent:#3b5bdb; --accent2:#5c7cfa; --danger:#e03131;
+  --l-color:#3b5bdb; --r-color:#0c8599; --w-color:#e8590c; --s-color:#7048e8;
+  --shadow:0 1px 3px rgba(0,0,0,0.06),0 1px 2px rgba(0,0,0,0.04);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#14161c; --card:#1c1f28; --text:#e7e9ee; --muted:#9098a8; --border:#2b2f3a;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#14161c; --card:#1c1f28; --text:#e7e9ee; --muted:#9098a8; --border:#2b2f3a;
+}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  margin:0;background:var(--bg);color:var(--text);
+  font-family:'Segoe UI',system-ui,-apple-system,Roboto,sans-serif;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+.wrap{max-width:1000px;margin:0 auto;padding:24px 16px 60px}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+h1{font-size:1.5rem;margin:0}
+.sub{color:var(--muted);font-size:.85rem;margin-top:4px}
+.theme-btn{border:1px solid var(--border);background:var(--card);color:var(--text);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:.8rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:20px;box-shadow:var(--shadow)}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:flex-start;justify-content:center;overflow-y:auto;z-index:50;padding:40px 16px;padding-top:calc(40px + env(safe-area-inset-top,0px))}
+.modal-overlay.open{display:flex}
+.modal-overlay .card{max-width:1000px;width:100%;margin:0}
+.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.modal-head h2{margin:0}
+.card h2{margin:0 0 14px;font-size:1.05rem}
+.row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.field{flex:1;min-width:120px;display:flex;flex-direction:column;gap:4px}
+label{font-size:.75rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+select,input{padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:.9rem}
+.tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.tab{padding:7px 14px;border-radius:20px;border:1px solid var(--border);background:var(--bg);cursor:pointer;font-size:.82rem;font-weight:600;color:var(--muted)}
+.tab.active{color:#fff;border-color:transparent}
+.tab[data-m="Listening"].active{background:var(--l-color)}
+.tab[data-m="Reading"].active{background:var(--r-color)}
+.tab[data-m="Writing"].active{background:var(--w-color)}
+.tab[data-m="Speaking"].active{background:var(--s-color)}
+.sections{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:12px}
+.sections .field label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.overall-preview{font-size:.85rem;color:var(--muted);margin-bottom:12px}
+.overall-preview b{color:var(--text);font-size:1.1rem}
+button.primary{background:var(--accent);color:#fff;border:none;padding:10px 18px;border-radius:9px;font-weight:600;cursor:pointer;font-size:.9rem}
+button.primary:hover{background:var(--accent2)}
+.filters{display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-bottom:14px}
+.filters .field{min-width:130px;flex:none}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-bottom:16px}
+.stat{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center}
+.stat .n{font-size:1.3rem;font-weight:700}
+.stat .l{font-size:.7rem;color:var(--muted);text-transform:uppercase}
+.table-scroll{overflow-x:auto;border-radius:10px;border:1px solid var(--border)}
+table{border-collapse:collapse;width:100%;font-size:.83rem;min-width:900px}
+thead th{position:sticky;top:0;background:var(--bg);text-align:left;padding:8px 10px;border-bottom:2px solid var(--border);white-space:nowrap;font-size:.72rem;text-transform:uppercase;color:var(--muted)}
+tbody td{padding:8px 10px;border-bottom:1px solid var(--border);white-space:nowrap}
+.sec-cell{display:flex;flex-direction:column;align-items:center;line-height:1.15}
+.sec-label{font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.02em}
+.sec-score{font-weight:700;font-size:.92rem}
+.sec-blank{text-align:center;color:var(--border)}
+tbody tr:hover{background:var(--bg)}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:.72rem;font-weight:700;color:#fff}
+.badge.Listening{background:var(--l-color)}.badge.Reading{background:var(--r-color)}
+.badge.Writing{background:var(--w-color)}.badge.Speaking{background:var(--s-color)}
+.del{background:none;border:none;color:var(--danger);cursor:pointer;font-size:.85rem}
+.empty{text-align:center;color:var(--muted);padding:30px 10px;font-size:.9rem}
+.footer-actions{display:flex;justify-content:space-between;align-items:center;margin-top:14px;gap:10px;flex-wrap:wrap}
+.link-btn{background:none;border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:8px;cursor:pointer;font-size:.78rem}
+.link-btn.danger{color:var(--danger);border-color:var(--danger)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>📊 IELTS Practice Tracker</h1>
+      <div class="sub">Record section-wise scores per practice test — saved in this browser</div>
+    </div>
+    <button class="theme-btn" id="themeBtn">🌓 Theme</button>
+    <button class="primary" id="viewRecordsBtn">📋 View Records</button>
+  </header>
+
+  <div class="card" id="entryCard">
+    <h2>Log a completed module</h2>
+    <div class="row">
+      <div class="field"><label>Series</label>
+        <select id="series"><option>Cambridge</option><option>Jumpinto</option></select>
+      </div>
+      <div class="field"><label>Book No.</label><input id="book" type="number" min="1" placeholder="e.g. 17"></div>
+      <div class="field"><label>Test No.</label><input id="test" type="number" min="1" placeholder="e.g. 3"></div>
+      <div class="field"><label>Date</label><input id="date" type="date"></div>
+    </div>
+
+    <div class="tabs" id="tabs">
+      <div class="tab active" data-m="Listening">Listening</div>
+      <div class="tab" data-m="Reading">Reading</div>
+      <div class="tab" data-m="Writing">Writing</div>
+      <div class="tab" data-m="Speaking">Speaking</div>
+    </div>
+
+    <div class="sections" id="sectionFields"></div>
+    <div class="overall-preview">Total marks: <b id="totalPreview">–</b> &nbsp;·&nbsp; Estimated overall band: <b id="overallPreview">–</b></div>
+    <div class="row"><div class="field" style="flex:1"><label>Notes (optional)</label><input id="notes" placeholder="e.g. rushed section 3, timing issue"></div></div>
+    <button class="primary" id="saveBtn">Save entry</button>
+  </div>
+
+  <div class="modal-overlay" id="recordsModal">
+  <div class="card">
+    <div class="modal-head">
+      <h2>Your record</h2>
+      <button class="link-btn" id="closeRecordsBtn">✕ Close</button>
+    </div>
+    <div class="stat-grid" id="statGrid"></div>
+    <div class="filters">
+      <div class="field"><label>Filter module</label>
+        <select id="fModule"><option value="">All</option><option>Listening</option><option>Reading</option><option>Writing</option><option>Speaking</option></select>
+      </div>
+      <div class="field"><label>Filter series</label>
+        <select id="fSeries"><option value="">All</option><option>Cambridge</option><option>Jumpinto</option></select>
+      </div>
+    </div>
+    <div class="table-scroll">
+      <table id="dataTable">
+        <thead><tr><th>Date</th><th>Test</th><th>Module</th><th>Sec 1</th><th>Sec 2</th><th>Sec 3</th><th>Sec 4</th><th>Total</th><th>Overall</th><th>Notes</th><th></th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      <div class="empty" id="emptyMsg" style="display:none">No entries yet — save your first practice module above.</div>
+    </div>
+    <div class="footer-actions">
+      <button class="link-btn" id="exportBtn">⬇ Export CSV</button>
+      <button class="link-btn danger" id="clearBtn">Delete all data</button>
+    </div>
+  </div>
+  </div>
+</div>
+
+<script>
+const SECTIONS = {
+  Listening: {type:'raw',  items:[{label:'Section 1 (/10)',max:10},{label:'Section 2 (/10)',max:10},{label:'Section 3 (/10)',max:10},{label:'Section 4 (/10)',max:10}]},
+  Reading:   {type:'raw',  items:[{label:'Section 1 (/13)',max:13},{label:'Section 2 (/13)',max:13},{label:'Section 3 (/14)',max:14}]},
+  Writing:   {type:'band', items:['Task 1','Task 2']},
+  Speaking:  {type:'band', items:['Part 1','Part 2','Part 3']}
+};
+// Approximate Academic Reading/Listening raw-score (out of 40) to band conversion
+const RAW_TO_BAND = [[39,9],[37,8.5],[35,8],[33,7.5],[30,7],[27,6.5],[23,6],[19,5.5],[15,5],[13,4.5],[10,4],[8,3.5],[6,3],[4,2.5]];
+function rawToBand(raw){
+  for(const [min,band] of RAW_TO_BAND){ if(raw>=min) return band; }
+  return 2;
+}
+function itemLabel(it){ return typeof it==='string' ? it : it.label; }
+const MODULE_ORDER = ['Listening','Reading','Writing','Speaking'];
+function sortEntries(list){
+  return list.slice().sort((a,b)=>{
+    if(a.series !== b.series) return a.series.localeCompare(b.series);
+    const ab = parseInt(a.book)||0, bb = parseInt(b.book)||0;
+    if(ab !== bb) return ab - bb;
+    const at = parseInt(a.test)||0, bt = parseInt(b.test)||0;
+    if(at !== bt) return at - bt;
+    const am = MODULE_ORDER.indexOf(a.module), bm = MODULE_ORDER.indexOf(b.module);
+    if(am !== bm) return am - bm;
+    return a.date < b.date ? -1 : 1;
+  });
+}
+const STORE_KEY = 'ielts_tracker_entries_v1';
+let entries = [];
+let currentModule = 'Listening';
+
+function loadEntries(){
+  try{ entries = JSON.parse(localStorage.getItem(STORE_KEY) || '[]'); }
+  catch(e){ entries = []; }
+}
+function saveEntries(){
+  try{ localStorage.setItem(STORE_KEY, JSON.stringify(entries)); return true; }
+  catch(e){ alert('Could not save — your browser storage may be full or blocked.'); return false; }
+}
+function roundHalf(n){ return Math.round(n*2)/2; }
+
+function buildSectionFields(){
+  const wrap = document.getElementById('sectionFields');
+  wrap.innerHTML = '';
+  const cfg = SECTIONS[currentModule];
+  cfg.items.forEach((it,i)=>{
+    const isRaw = cfg.type==='raw';
+    const max = isRaw ? it.max : 9;
+    const step = isRaw ? 1 : 0.5;
+    const ph = isRaw ? `0-${it.max}` : '0-9';
+    const div = document.createElement('div');
+    div.className = 'field';
+    div.innerHTML = `<label>${itemLabel(it)}</label><input type="number" step="${step}" min="0" max="${max}" class="secInput" data-i="${i}" placeholder="${ph}">`;
+    wrap.appendChild(div);
+  });
+  updatePreview();
+}
+function getSectionValues(){
+  return Array.from(document.querySelectorAll('.secInput')).map(el=>parseFloat(el.value)).filter(v=>!isNaN(v));
+}
+function computeOverall(mod, vals){
+  if(!vals.length) return null;
+  if(mod==='Reading' || mod==='Listening'){
+    const raw = vals.reduce((a,b)=>a+b,0);
+    return rawToBand(raw);
+  }
+  if(mod==='Writing' && vals.length===2){
+    return roundHalf((vals[0] + 2*vals[1]) / 3);
+  }
+  const avg = vals.reduce((a,b)=>a+b,0)/vals.length;
+  return roundHalf(avg);
+}
+function computeTotal(mod, vals){
+  if(!vals.length) return null;
+  const cfg = SECTIONS[mod];
+  if(cfg.type !== 'raw') return null;
+  return vals.reduce((a,b)=>a+b,0);
+}
+function updatePreview(){
+  const vals = getSectionValues();
+  const cfg = SECTIONS[currentModule];
+  const need = cfg.items.length;
+  const o = computeOverall(currentModule, vals);
+  const t = computeTotal(currentModule, vals);
+  document.getElementById('overallPreview').textContent = (vals.length===need && o!==null) ? o.toFixed(1) : '–';
+  const maxTotal = cfg.type==='raw' ? cfg.items.reduce((a,it)=>a+it.max,0) : null;
+  document.getElementById('totalPreview').textContent = (vals.length===need && t!==null) ? `${t}/${maxTotal}` : (cfg.type==='raw' ? '–' : 'n/a');
+}
+
+document.getElementById('tabs').addEventListener('click', e=>{
+  const t = e.target.closest('.tab'); if(!t) return;
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active');
+  currentModule = t.dataset.m;
+  buildSectionFields();
+});
+document.getElementById('sectionFields').addEventListener('input', updatePreview);
+document.getElementById('date').valueAsDate = new Date();
+
+document.getElementById('saveBtn').addEventListener('click', ()=>{
+  const series = document.getElementById('series').value;
+  const book = document.getElementById('book').value.trim();
+  const test = document.getElementById('test').value.trim();
+  const date = document.getElementById('date').value;
+  const notes = document.getElementById('notes').value.trim();
+  const cfg = SECTIONS[currentModule];
+  const secItems = cfg.items;
+  const inputs = Array.from(document.querySelectorAll('.secInput'));
+  const vals = inputs.map(el=>el.value.trim());
+
+  if(!book || !test){ alert('Please enter the book and test number.'); return; }
+  if(vals.some(v=>v==='') || vals.some(v=>isNaN(parseFloat(v)))){ alert('Please fill in all section scores.'); return; }
+  const numVals = vals.map(parseFloat);
+  const outOfRange = numVals.some((v,i)=> cfg.type==='raw' ? (v<0||v>secItems[i].max) : (v<0||v>9));
+  if(outOfRange){ alert(cfg.type==='raw' ? 'Section marks must be within their max (see labels).' : 'Band scores must be between 0 and 9.'); return; }
+
+  const overall = computeOverall(currentModule, numVals);
+  const total = computeTotal(currentModule, numVals);
+  const entry = {
+    id: Date.now()+'-'+Math.random().toString(36).slice(2,7),
+    date: date || new Date().toISOString().slice(0,10),
+    series, book, test, module: currentModule,
+    sections: secItems.map((it,i)=>({label:itemLabel(it), score:numVals[i]})),
+    overall, total, notes
+  };
+  entries.push(entry);
+  if(saveEntries()){
+    document.getElementById('notes').value='';
+    inputs.forEach(el=>el.value='');
+    updatePreview();
+    render();
+  }
+});
+
+function fmtTestId(e){ return `${e.series}_B${e.book}_T${e.test}`; }
+
+function render(){
+  const fMod = document.getElementById('fModule').value;
+  const fSer = document.getElementById('fSeries').value;
+  const filtered = sortEntries(entries)
+    .filter(e => !fMod || e.module===fMod)
+    .filter(e => !fSer || e.series===fSer);
+
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = '';
+  document.getElementById('emptyMsg').style.display = filtered.length ? 'none' : 'block';
+  filtered.forEach(e=>{
+    const tr = document.createElement('tr');
+    let secCells = '';
+    for(let i=0;i<4;i++){
+      const s = e.sections[i];
+      secCells += s
+        ? `<td><div class="sec-cell"><span class="sec-label">${s.label}</span><span class="sec-score">${s.score}</span></div></td>`
+        : `<td class="sec-blank">–</td>`;
+    }
+    const cfg = SECTIONS[e.module];
+    let totalCell = '<td class="sec-blank">n/a</td>';
+    if(cfg.type === 'raw'){
+      const t = (e.total!=null) ? e.total : e.sections.reduce((a,s)=>a+s.score,0);
+      const maxTotal = cfg.items.reduce((a,it)=>a+it.max,0);
+      totalCell = `<td><b>${t}</b>/${maxTotal}</td>`;
+    }
+    tr.innerHTML = `<td>${e.date}</td><td>${fmtTestId(e)}</td>
+      <td><span class="badge ${e.module}">${e.module}</span></td>
+      ${secCells}
+      ${totalCell}
+      <td><b>${e.overall!==null?e.overall.toFixed(1):'–'}</b></td>
+      <td>${e.notes||''}</td>
+      <td><button class="del" data-id="${e.id}" title="Delete this entry">✕</button></td>`;
+    tbody.appendChild(tr);
+  });
+
+  // stats
+  const statGrid = document.getElementById('statGrid');
+  const mods = ['Listening','Reading','Writing','Speaking'];
+  statGrid.innerHTML = '';
+  const totalStat = document.createElement('div');
+  totalStat.className='stat';
+  totalStat.innerHTML = `<div class="n">${entries.length}</div><div class="l">Total logs</div>`;
+  statGrid.appendChild(totalStat);
+  mods.forEach(m=>{
+    const list = entries.filter(e=>e.module===m && e.overall!==null);
+    const avg = list.length ? (list.reduce((a,b)=>a+b.overall,0)/list.length).toFixed(1) : '–';
+    const div = document.createElement('div');
+    div.className='stat';
+    div.innerHTML = `<div class="n">${avg}</div><div class="l">Avg ${m}</div>`;
+    statGrid.appendChild(div);
+  });
+}
+
+document.getElementById('tbody').addEventListener('click', e=>{
+  const btn = e.target.closest('.del'); if(!btn) return;
+  if(confirm('Delete this entry permanently?')){
+    entries = entries.filter(x=>x.id!==btn.dataset.id);
+    saveEntries(); render();
+  }
+});
+document.getElementById('fModule').addEventListener('change', render);
+document.getElementById('fSeries').addEventListener('change', render);
+
+document.getElementById('clearBtn').addEventListener('click', ()=>{
+  const sure = prompt('This deletes ALL saved entries permanently. Type DELETE to confirm.');
+  if(sure === 'DELETE'){ entries = []; saveEntries(); render(); }
+});
+
+document.getElementById('exportBtn').addEventListener('click', ()=>{
+  if(!entries.length){ alert('No data to export.'); return; }
+  const rows = [['Date','Series','Book','Test','Module','Section 1','Section 2','Section 3','Section 4','Total','Overall','Notes']];
+  sortEntries(entries).forEach(e=>{
+    const secVals = [0,1,2,3].map(i => e.sections[i] ? e.sections[i].score : '');
+    const cfg = SECTIONS[e.module];
+    const total = cfg.type==='raw' ? ((e.total!=null) ? e.total : e.sections.reduce((a,s)=>a+s.score,0)) : '';
+    rows.push([e.date, e.series, e.book, e.test, e.module,
+      ...secVals, total,
+      e.overall!==null?e.overall:'', (e.notes||'').replace(/,/g,';')]);
+  });
+  const csv = rows.map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');
+  const blob = new Blob([csv],{type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'ielts_practice_log.csv';
+  a.click();
+});
+
+document.getElementById('viewRecordsBtn').addEventListener('click', ()=>{
+  render();
+  document.getElementById('recordsModal').classList.add('open');
+});
+document.getElementById('closeRecordsBtn').addEventListener('click', ()=>{
+  document.getElementById('recordsModal').classList.remove('open');
+});
+document.getElementById('recordsModal').addEventListener('click', e=>{
+  if(e.target.id === 'recordsModal') document.getElementById('recordsModal').classList.remove('open');
+});
+document.addEventListener('keydown', e=>{
+  if(e.key === 'Escape') document.getElementById('recordsModal').classList.remove('open');
+});
+  const cur = document.documentElement.getAttribute('data-theme');
+  document.documentElement.setAttribute('data-theme', cur==='dark' ? 'light' : 'dark');
+});
+
+buildSectionFields();
+loadEntries();
+render();
+
+// Enter key moves focus to the next input/select in the form, submits on the last one
+document.getElementById('entryCard').addEventListener('keydown', e=>{
+  if(e.key !== 'Enter') return;
+  const tag = e.target.tagName;
+  if(tag !== 'INPUT' && tag !== 'SELECT') return;
+  e.preventDefault();
+  const focusables = Array.from(document.querySelectorAll('#entryCard input, #entryCard select'))
+    .filter(el => el.offsetParent !== null); // visible only
+  const idx = focusables.indexOf(e.target);
+  if(idx > -1 && idx < focusables.length - 1){
+    focusables[idx+1].focus();
+    if(focusables[idx+1].tagName==='INPUT') focusables[idx+1].select();
+  } else {
+    document.getElementById('saveBtn').click();
+  }
+});
+</script>
+</body>
+</html>
